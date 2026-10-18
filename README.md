@@ -23,7 +23,7 @@
 
 <details><summary><h2 id="1-sobre-o-projeto"> 1. Sobre o projeto</h2></summary> 
 
-Este repositório contém a implementação em Verilog do núcleo de um coprocessador gráfico de 16 bits, projetado para a placa de desenvolvimento Terasic DE1-SoC (Intel Cyclone V SoC). O projeto realiza a renderização de cenários baseados em tiles (background), sprites independentes e polígonos em tempo real a partir de instruções de 32 bits criadas pela equipe e enviadas pelo processador ARM sob o sistema operacional Linux. A comunicação entre o coprocessador gráfico e o processador ARM é regulada pelos sinais do tipo valid, busy e done. 
+Este repositório contém a implementação em Verilog do núcleo de um coprocessador gráfico de 16 bits, projetado para a placa de desenvolvimento Terasic DE1-SoC (Intel Cyclone V SoC). O projeto realiza a renderização de cenários baseados em tiles (background), sprites independentes e polígonos em tempo real a partir de instruções de 32 bits criadas pela equipe e enviadas pelo processador ARM sob o sistema operacional Linux. A comunicação entre o coprocessador gráfico e o processador ARM é regulada pelos sinais do tipo <code>valid</code>, <code>busy</code> e <code>done</code>. 
 
 <details>
   <summary><h2>SUMÁRIO</h2></summary>
@@ -148,29 +148,71 @@ O rasterizador é responsável por:
 
 **2.1.4. Unidade de Controle**
 
-O módulo Unidade Controle atua como o núcleo de decodificação e controle de estados do coprocessador (FSM).
+O módulo Unidade de Controle atua como o cérebro do coprocessador gráfico. Ele implementa uma Máquina de Estados Finitos (FSM) síncrona responsável por orquestrar a busca de comandos na fila (FIFO), decodificar o <code>opcode</code> de 5 bits e gerar os pulsos de habilitação (*enables*) e o barramento de dados para as unidades funcionais (Motores de Background, Sprites e Polígonos).
 
-- **Ciclo de Busca e Execução**: Desenfileira as instruções da FIFO, interpreta os <code>opcodes</code> e distribui os operandos para as unidades funcionais apropriadas.
-- **Atualização de Registradores**: Decodifica parâmetros de posição, cor, espelhamento, transparência e deslocamento, escrevendo diretamente nos bancos de registradores de cada motor gráfico (<code>RegSprites</code>, <code>RegPoligonos</code>, parâmetros de Background) ou atualizando as memórias BRAM (Tilemap e Sprite RAM).
+**Estados da FSM**:
+
+- <code>INIT</code>: Estado ocioso inicial em que a FSM aguarda a chegada de instruções. Permanece neste estado enquanto a fila estiver vazia (<code>fifo_empty = 1</code>). Assim que uma nova instrução é detectada, transita para <code>GET_INST</code>.
+- <code>GET_INST</code>: Realiza a retirada da instrução do topo da FIFO ativando o sinal de *pop* (<code>exec_pop = 1</code>). A palavra de 32 bits presente na saída da fila é registrada internamente em instrucao.
+- <code>EXEC</code>: Decodifica o <code>opcode</code> localizado nos bits menos significativos (<code>instrucao[4:0]</code>) e isola os operandos nos 27 bits superiores (<code>dados <= instrucao[31:5]</code>). Neste ciclo, ativa de forma exclusiva as linhas de controle do módulo de destino:
+  - **Background**: ativa <code>bg_en</code> (<code>BSCROLL</code>) ou <code>bg_ram_en</code> (<code>BTILE</code>).
+  - **Sprites**: gera os pulsos decodificados em <code>sprite_en</code> (<code>POSSP</code>, <code>ATSP</code>, <code>RGSP</code>) ou habilita a gravação na memória gráfica com <code>sprite_ram_en</code> (<code>WRSP</code>).
+  - **Polígonos**: aciona as linhas de configuração <code>pol_en</code> (<code>ATPO</code>, <code>POSPO</code>, <code>TAMPO</code>, <code>CORPO</code>).
+  - **Prioridade do Compositor**: atualiza o registrador prioridade a partir do bit 5 (<code>instrucao[5]</code>).
+  - **Transição**: Se a instrução executada for um <code>NOOP</code> (<code>5'b00000</code>), transita para <code>WAIT</code>; caso contrário, se a fila ainda contiver comandos (<code>!fifo_empty</code>), retorna diretamente a <code>GET_INST</code> para manter vazão máxima contínua, ou volta para <code>INIT</code> caso a fila esvazie.
+- <code>WAIT</code>: Dedicado exclusivamente à instrução de fim de quadro (<code>NOOP</code>). A Unidade de Controle suspende o fluxo de processamento e aguarda a ocorrência da borda de descida do sinal de sincronismo vertical (<code>negedge vsync</code>). Essa pausa sincroniza o software com a taxa de atualização do monitor (60 Hz), garantindo que as modificações de cena sejam consolidadas durante o apagamento vertical. Ao detectar o evento de <code>VSYNC</code>, a FSM avança para buscar novos comandos ou repousar.
 
 <br>
 
 **2.1.5. Fila de Instruções**
 
-A Fila de Instruções é responsável por armazenar temporariamente as instruções de 32 bits enviadas pelo processador principal antes do processamento.
+O módulo FIFO atua como a interface primária de entrada de comandos entre o processador principal (ARM Cortex-A9 via registradores <code>PIO</code>/<code>MMIO</code>) e o pipeline gráfico em hardware. Ele combina um banco de armazenamento circular síncrono de 16 palavras com uma Máquina de Estados Finitos (FSM) de handshake de 4 vias (<code>valid</code>, <code>busy</code> e <code>done</code>), garantindo a transferência atômica de instruções sem perda de dados por diferença de clocks.
 
-- **Mecanismo FIFO**: Opera como uma fila circular de entrada e saída em ordem de chegada, permitindo desacoplar a taxa de envio do processador hospedeiro da taxa de execução interna.
-- **Sinais de Status**: Controla o fluxo de dados emitindo sinais de cheia (*full*) e vazia (*empty*), evitando *overflow* ou execuções indevidas quando não há instruções pendentes.
+**Estados da FSM**:
+
+- <code>HAVE_INST</code>: Estado de repouso inicial em que a <code>FIFO</code> mantém <code>done = 0</code> e aguarda uma requisição do HPS. Quando detecta <code>valid = 1</code> e a fila não está cheia (<code>!fifo_full</code>), ativa <code>busy = 1</code>, gera o pulso de escrita <code>wr_en = 1</code> e avança para <code>WRD_INST</code>.
+- <code>WRD_INST</code>: Sinaliza a conclusão do ciclo de escrita física do dado na fila. A <code>FSM</code> desativa <code>busy = 0</code> e eleva <code>done = 1</code> para notificar o processador que o comando foi armazenado com sucesso, transitando no ciclo seguinte para <code>WAIT</code>.
+- <code>WAIT</code>: Estado de trava síncrona. Mantém <code>done = 1</code> e suspende novas operações até que o processador reconheça a resposta e abaixe a linha de validação (<code>!valid</code>). Assim que o sinal de <code>valid</code> é desassertado, a <code>FSM</code> zera <code>done = 0</code> e retorna para <code>HAVE_INST</code>, ficando pronta para o próximo envio.
+
+**Mecanismo de Fila Circular e Ponteiros**:
+
+- <code>sp</code> (Ponteiro de Escrita): Aponta para a posição da memória onde a próxima instrução vinda do barramento (<code>instr_in</code>) será gravada. Incrementa a cada escrita válida (<code>sp <= sp + 1</code>), retornando automaticamente ao início após a posição 15.
+- <code>exec</code> (Ponteiro de Leitura): Aponta para a instrução a ser consumida pela Unidade de Controle. Disponibiliza o dado continuamente na saída através de <code>instr_out = fila[exec]</code> e é incrementado sempre que a UC emite o pulso de retirada (pop) (<code>exec_pop = 1</code>).
+- <code>count</code> (Contador de Ocupação): Registrador de 5 bits que monitora o saldo de instruções armazenadas para resolver condições de ambiguidade:
+  - Ativa <code>fifo_empty = 1</code> quando <code>count == 0</code>, sinalizando para a Unidade de Controle que não há instruções pendentes.
+  - Ativa <code>fifo_full = 1</code> quando <code>count == 16</code>, aplicando contrapressão (backpressure) sobre o HPS para impedir sobreescrita (overflow).
+  - Trata inserções simultâneas de escrita e leitura em um mesmo ciclo de clock, mantendo o valor de <code>count</code> estável sem corrupção dos ponteiros.
 
 <br>
 
 **2.1.6. ISA (Instruction Set Architecture)**
 
-A ISA personalizada define o conjunto de instruções de 32 bits suportadas pelo coprocessador. Cada instrução possui um campo de <code>opcode</code> dedicado, seguido dos seus operandos.
+A ISA personalizada define o conjunto de instruções de 32 bits suportadas pelo coprocessador. Cada instrução possui um campo de <code>opcode</code> dedicado, seguido dos seus operandos. Os parâmetros empacotados nas instruções representam valores imediatos que alimentam diretamente os registradores internos e controladores de memória:
 
-- **Instruções de Sprites**: Configuração de coordenadas (X,Y), seleção de tile/imagem, espelhamento (horizontal/vertical), prioridade e visibilidade dos 32 sprites ativos.
-- **Instruções de Polígonos**: Definição dos vértices, da cor, do tamanho e da prioridade dos 16 polígonos gerenciados pelo rasterizador.
-- **Instruções de Background**: Ajuste de deslocamento (scroll) horizontal e vertical, além de escrita direta no Tilemap (40x30).
+- <code>X</code> e <code>Y</code> (Posição / Deslocamento): Coordenadas espaciais na tela. Para sprites e polígonos, <code>X</code> possui 9 bits (0 a 319) e <code>Y</code> possui 8 bits (0 a 239). No caso de rolagem do plano de fundo (<code>BSCROLL</code>), representam o deslocamento matricial em unidades de tiles de 8x8 pixels (X de 0 a 39 e Y de 0 a 29).
+- <code>COD RAM</code> (Endereçamento de Memória):
+  - Em <code>BTILE</code> (11 bits, <code>[23:13]</code>): Endereço linear de uma das 1.200 posições da memória do mapa de tiles (0 a 1199), calculado por <code>Linha * 40 + Coluna</code>.
+  - Em <code>WRSP</code> (13 bits, <code>[25:13]</code>): Endereço físico da memória de sprites de 8.192 posições (0 a 8191), cobrindo 32 slots de 256 pixels cada (<code>Slot * 256 + Y * 16 + X</code>).
+- <code>cor</code> (Índice de Cor): Valor de 8 bits (0 a 255) codificado no padrão RGB332 (<code>RRRGGGBB</code>). Para sprites e polígonos, o valor <code>0x00</code> atua como transparência.
+- <code>ID REG</code> (Identificador do Registrador / Prioridade Fixa): Índice do banco de registradores de destino.
+  - Nos sprites, aloca 5 bits (<code>[26:22]</code>, <code>[12:8]</code> ou <code>[14:10]</code>) para selecionar um dos 32 registradores (0 a 31). A posição no banco dita a prioridade estática: o registrador 0 possui a maior prioridade de desenho, sobrepondo o registrador 1, este sobrepondo o 2, até o registrador 31.
+  - Nos polígonos, aloca 4 bits (<code>[25:22]</code>, <code>[20:17]</code> ou <code>[16:13]</code>) para selecionar um dos 16 registradores (0 a 15). Assim como nos sprites, o polígono 0 possui a maior prioridade em caso de sobreposição geométrica.
+- <code>ID RAM</code> (Identificador do Slot de Sprite): Campo de 5 bits (<code>[9:5]</code>) presente na instrução <code>RGSP</code> que seleciona qual padrão gráfico (dentre os 32 slots de 16x16 pixels armazenados na RAM) será vinculado ao registrador indicado por <code>ID REG</code>. Esse mecanismo desacopla o desenho armazenado da sua prioridade em tela.
+- <code>flip</code> (Espelhamento do Sprite): Campo de 2 bits que controla a inversão dos eixos na leitura da memória do sprite:
+  - <code>00</code>: Imagem normal.
+  - <code>01</code>: Espelhamento vertical (flip V).
+  - <code>10</code>: Espelhamento horizontal (flip H).
+  - <code>11</code>: Espelhamento simultâneo horizontal e vertical.
+- <code>shw</code> (Habilitação de Visibilidade): Bit único (<code>1</code> para visível e <code>0</code> para oculto).
+- <code>tipo</code> (Geometria do Polígono): Campo de 3 bits (<code>[7:5]</code>) que seleciona o algoritmo de rasterização por equações de aresta:
+  - <code>0</code>: Retângulo.
+  - <code>1</code>: Quadrado (altura forçada igual à largura).
+  - <code>2</code>: Triângulo Equilátero (âncora no topo superior central).
+  - <code>3</code>: Triângulo Isósceles (âncora no topo superior central).
+  - <code>4</code>: Triângulo Escaleno / Retângulo (vértice reto na base inferior esquerda).
+- <code>pri</code> (Prioridade de Camadas): Bit único (<code>instrucao[5]</code>) que orienta o circuito combinacional do Compositor:
+  - <code>0</code>: Sprites possuem prioridade sobre os polígonos.
+  - <code>1</code>: Polígonos possuem prioridade sobre os sprites.
 
 No total, tem-se 12 instruções que estão representadas abaixo: 
 
@@ -178,7 +220,7 @@ No total, tem-se 12 instruções que estão representadas abaixo:
   <figure>
     <img src="resources/Instrucoes.png">
     <figcaption>
-      <i>Figura 1 - Instruções do Projeto.</i>
+      <i>Figura 1 - Instruções do Coprocessador.</i>
     </figcaption>
   </figure>
 </div>
@@ -187,11 +229,24 @@ No total, tem-se 12 instruções que estão representadas abaixo:
 
 **2.1.7. Compositor de Camadas**
 
-Diferente da versão anterior (onde a composição era puramente combinacional antes da saída do VGA), no projeto atual o Compositor atua diretamente no fluxo do Varredor Lógico Interno antes da gravação na memória de vídeo:
+O módulo Compositor atua como a unidade de varredura lógica, arbitração de camadas e alimentação contínua do Back Buffer. Ele desacopla a geração da imagem da leitura física do monitor, percorrendo autonomamente os 76.800 pixels da resolução de 320x240 no domínio de clock de 25 MHz (<code>clk25</code>) e selecionando a cor final de cada coordenada com base na prioridade configurada e na transparência.
 
-- Avalia simultaneamente as saídas dos três motores (Background, Sprites e Polígonos) para a coordenada (X,Y) atual;
-- Aplica a lógica de prioridade de camadas e transparência;
-- Entrega o byte de cor de 8 bits resultante diretamente para ser gravado no Back Buffer.
+**Estrutura e Funcionamento:**
+- **Varredor Virtual de Resolução Lógica:**
+  - Implementa dois contadores síncronos internos: <code>count_x</code> (9 bits, variando de 0 a 319) e <code>count_y</code> (8 bits, variando de 0 a 239).
+  - o atingir o limite horizontal (<code>count_x == 9'd319</code>), <code>count_x</code> é reiniciado em 0 e a linha vertical (<code>count_y</code>) é incrementada. Ao alcançar a última linha (<code>count_y == 8'd239</code>), o quadro reinicia em zero.
+  - Os valores dos contadores são exportados continuamente nos barramentos de saída <code>scan_x</code> e <code>scan_y</code>, guiando os três motores gráficos (<code>MotorBG</code>, <code>MotorSprites</code> e <code>rasterizadorPoligonos</code>) na avaliação de suas respectivas geometrias para o pixel corrente.
+
+- **Cálculo de Endereçamento do FrameBuffer:**
+  - Converte as coordenadas bidimensionais da varredura em um endereço linear de 17 bits (<code>current_addr</code>) por meio da equação combinacional <code>(count_y * 17'd320) + count_x</code>.
+  - O endereço calculado é mapeado na porta de saída <code>fb_write_addr</code>, indexando linearmente a memória de 0 a 76.799.
+
+- **Multiplexação de Camadas, Transparência e Prioridade:**
+  - Amostra concorrentemente as saídas de cor dos três motores: <code>draw_bg</code> (plano de fundo), <code>draw_sprites</code> (camada de sprites) e <code>draw_pol</code> (polígonos rasterizados).
+  - O índice de cor <code>8'd0</code> (<code>0x00</code>) é tratado como transparente para sprites e polígonos, permitindo que a camada subjacente permaneça visível.
+  - A seleção da cor final (<code>sel_cor</code>) é orientada pelo bit de controle <code>prioridade</code> (vindo da instrução <code>PRIOR</code> da ISA):
+    - Prioridade Padrão (<code>prioridade == 0</code>): Sprites > Polígonos > Background. Se <code>draw_sprites != 8'd0</code>, a cor do sprite é exibida; caso contrário, se <code>draw_pol != 8'd0</code>, exibe o polígono; caso nenhum elemento ativo intercepte a coordenada, exibe <code>draw_bg</code>.
+    - Prioridade Invertida (<code>prioridade == 1</code>): Polígonos > Sprites > Background. Se <code>draw_pol != 8'd0</code>, a cor do polígono se sobrepõe ao sprite; caso contrário, se <code>draw_sprites != 8'd0</code>, exibe o sprite; se ambos forem nulos, exibe <code>draw_bg</code>.
 
 <br>
 
