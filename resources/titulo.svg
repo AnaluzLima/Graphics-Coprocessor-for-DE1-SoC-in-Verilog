@@ -46,7 +46,7 @@
   </defs>
 
   <g class="wave-layer-2">
-    <path fill="#6d7b48" fill-opacity="0.5" d="M -20,0 L 1460,0 L 1460,330 C 1200,280 900,360 680,320 C 420,275 180,360 -20,350 Z" />
+    <path fill="#6d7b48" fill-opacity="0.5" d="M 0,0 L 1440,0 L 1440,330 C 1200,280 900,360 680,320 C 420,275 180,360 0,350 Z" />
   </g>
 
   <g class="wave-layer-1">
