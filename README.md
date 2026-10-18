@@ -611,9 +611,16 @@ De acordo com o relatório de compilação na plataforma Quartus Prime, o projet
 <summary><h2 id="8-tecnologias-utilizadas">8. Tecnologias Utilizadas</h2></summary>
 
 - Quartus Prime Version 25.1std.0 Build 1129 10/21/2025 SC Lite Edition
+- Placa Terasic DE1-SoC, com FPGA Intel Cyclone V <code>5CSEMA5F31C6</code> e processador ARMv7-A;
+- Linguagens:
+  - Verilog-2001;
+  - Assembly;
+  - C;
+- Monitor Philips Lcd Led 18,5 Polegadas <code>191el2sb/78</code>;
 - [Excalidraw](https://excalidraw.com/): Esboço do Projeto;
 - [Canva](https://www.canva.com/): Diagrama de Alto Nível;
 - [Claude](https://claude.ai/new): Códigos de Teste;
+- [Google Spreadsheet](https://docs.google.com/spreadsheets): Tabela de <code>Opcodes</code>;
 
 </details>
 
