@@ -99,6 +99,8 @@ O Motor de Background aplica os parâmetros de deslocamento de rolagem e busca o
 - Recebe as coordenadas já na resolução de 320x240;
 - Identifica o tipo de instrução que será realizada (<code>BSCROLL</code> ou <code>BTILE</code>);
 - Particiona a instrução, gerando os dados necessários;
+  - Para o <code>BSCROLL</code>, são os deslocamentos vertical e horizontal;
+  - Para o <code>BTILE</code>, são o endereço da memória e a cor;
 - Calcula o deslocamento vertical e horizontal;
 - Divide a tela em um tilemap de 40x30;
 - Calcula o endereço de qual tile o VGA está analisando no momento;
@@ -117,7 +119,7 @@ O Motor de Sprites varre seu banco de dados para determinar se algum dos 32 spri
 - Calcula o espelhamento vertical e horizontal de cada sprite;
 - Calcula o endereço do sprite e acessa na memória para saber a cor do pixel;
 - Manda o desenho do sprite;
-- Caso a instrução seja para mudar o desenho de um sprite na RAM, <code>WRSP</code>, a RAM recebe os dados necessários para tal modificação e, posteriormente, o motor realiza os passos citados acima.
+- Caso a instrução seja para mudar o desenho de um sprite na RAM, <code>WRSP</code>, a RAM recebe os dados necessários (o endereço da memória e a cor) para tal modificação e, posteriormente, o motor realiza os passos citados acima.
 
 <br>
 
@@ -274,10 +276,10 @@ As funções criadas no driver podem ser importadas para serem utilizadas em có
 3. **Aritmética Inteira Signed no Rasterizador**: Parametrizar as coordenadas e os cálculos dos multiplicadores DSP como números inteiros com sinal resolve erros de estouro aritmético quando vértices de polígonos móveis ou estáticos se localizam parcialmente fora do campo visível (coordenadas negativas), eliminando distorções na tela.
 4. **Paralelismo de Alta Densidade**: O uso simultâneo de 87 blocos multiplicadores DSP dedicados garante que a validação lógica dos 16 polígonos ocorra em tempo real a cada pixel do varredor, sem atrasos de processamento.
 5. **Reformulação do Compositor**: O problema tem como um dos requisitos o desenvolvimento de motores gráficos e compositor, entretanto, sabendo que as suas funcionalidades se assemelham, o compositor foi convertido em um seletor, sendo responsável apenas pela cor final do pixel, enquanto os motores são responsáveis pelos cálculos.
-6. **Uso de uma Fila Circular de Instruções**: Uma fila circular é uma estrutura de dados que permite o reaproveitamento de espaço ao conectar a última posição com a primeira. Assim, com o uso de uma fila circular para o armazenamento das instruções, as chances de lotação são reduzidas, gerando uma atualização rápida na fila e evitando que novas instruções tenham que esperar para serem armazenadas. Entretanto, vale ressaltar que mais informações (ponteiros para indicar o volume de dados da fila) são necessárias para a manutenção da fila.
-7. **Fases do Ciclo de Execução de Instrução**: Em arquiteturas de processadores, os ciclos de execução de instrução geralmente apresentam quatro fases: busca, decodificação, execução e armazenamento dos resultados. Porém, ao decorrer do desenvolvimento do coprocessador gráfico, percebeu-se a necessidade de modificação neste ciclo, assim, as fases de decodificação e execução foram unidas, já que os motores utilizam apenas um ciclo de clock para realizarem suas tarefas.
-8. **Organização das Instruções**: xxx
-9. **Uso da Busca Passiva de Instruções**: xxx
+6. **Uso de uma Fila Circular de Instruções**:  Uma fila circular é uma estrutura de dados que permite o reaproveitamento de espaço ao conectar a última posição com a primeira. Com essa abordagem, evita-se o desperdício de espaço e a necessidade de deslocar dados, gerando uma atualização rápida na fila e evitando que novas instruções tenham que esperar para serem armazenadas. Entretanto, vale ressaltar que sua implementação requer mecanismos de controle adicionais, como ponteiros para leitura e escrita e sinais de _status_ (cheio e vazio), para a plena manutenção da fila.
+7. **Fases do Ciclo de Execução de Instrução**: Em arquiteturas de processadores, os ciclos de execução de instrução geralmente apresentam quatro fases: busca, decodificação, execução e armazenamento dos resultados. Porém, ao decorrer do desenvolvimento do coprocessador gráfico, percebeu-se a necessidade de modificação neste ciclo, assim, as fases de decodificação e execução foram unidas, já que os motores utilizam apenas um ciclo de _clock_ para realizarem suas tarefas.
+8. **Organização das Instruções**: Inicialmente, as instruções foram organizadas de tal modo que os cinco _bits_ mais significativos correspondiam ao <code>opcode</code> e os _bits_ restantes correspondiam às informações necessárias para a instrução. Entretanto, os testes de integração entre o coprocessador e o processador ARM não funcionaram. Isso ocorreu, pois descobriu-se que a passagem sequencial dos dados espelhava a ordem dos _bits_ e as instruções enviadas não eram identificadas pelo coprocessador. Para resolver esse problema, as instruções foram modificadas e o <code>opcode</code> passou a ocupar os cinco _bits_ menos significativos.
+9. **Uso da Busca Passiva de Instruções**: A busca de instruções pode ser realizada de duas formas: ativa ou passiva. De acordo com o problema, na busca ativa, uma memória interna disponibiliza as instruções a serem executadas, já na busca passiva, o processador ARM envia as instruções a serem executadas. Neste projeto, foi escolhida a busca passiva devido à futura implementação do jogo em C e a maior simplicidade do código Assembly, em comparação com o da busca ativa.
 
 
 </details>
