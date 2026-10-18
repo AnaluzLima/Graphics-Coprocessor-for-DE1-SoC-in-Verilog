@@ -21,10 +21,6 @@
   <a href="https://github.com/vivi2604"><img src="https://avatars.githubusercontent.com/u/263758324?v=4" title="Vivian Moura" width="100" height="100"></a>
 </div>
 
-<details><summary><h2 id="1-sobre-o-projeto"> 1. Sobre o projeto</h2></summary> 
-
-Este repositório contém a implementação em Verilog do núcleo de um coprocessador gráfico de 16 bits, projetado para a placa de desenvolvimento Terasic DE1-SoC (Intel Cyclone V SoC). O projeto realiza a renderização de cenários baseados em tiles (background), sprites independentes e polígonos em tempo real a partir de instruções de 32 bits criadas pela equipe e enviadas pelo processador ARM sob o sistema operacional Linux. A comunicação entre o coprocessador gráfico e o processador ARM é regulada pelos sinais do tipo <code>valid</code>, <code>busy</code> e <code>done</code>. 
-
 <details>
   <summary><h2>SUMÁRIO</h2></summary>
 
@@ -51,7 +47,12 @@ Este repositório contém a implementação em Verilog do núcleo de um coproces
 
 </details>
 
-<h3 id="11-requisitos"> 1.1. REQUISITOS</h3>
+<summary><h2 id="1-sobre-o-projeto"> 1. Sobre o projeto</h2></summary> 
+
+Este repositório contém a implementação em Verilog do núcleo de um coprocessador gráfico de 16 bits, projetado para a placa de desenvolvimento Terasic DE1-SoC (Intel Cyclone V SoC). O projeto realiza a renderização de cenários baseados em tiles (background), sprites independentes e polígonos em tempo real a partir de instruções de 32 bits criadas pela equipe e enviadas pelo processador ARM sob o sistema operacional Linux. A comunicação entre o coprocessador gráfico e o processador ARM é regulada pelos sinais do tipo <code>valid</code>, <code>busy</code> e <code>done</code>. 
+
+<details>
+  <summary><h3 id="11-requisitos">1.1. REQUISITOS</h3></summary>
 
 O desenvolvimento do coprocessador gráfico deve cumprir:
 - **Entrada e saída:**
