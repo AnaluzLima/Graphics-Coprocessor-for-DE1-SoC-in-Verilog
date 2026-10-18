@@ -234,7 +234,7 @@ O módulo Compositor atua como a unidade de varredura lógica, arbitração de c
 **Estrutura e Funcionamento:**
 - **Varredor Virtual de Resolução Lógica:**
   - Implementa dois contadores síncronos internos: <code>count_x</code> (9 bits, variando de 0 a 319) e <code>count_y</code> (8 bits, variando de 0 a 239).
-  - o atingir o limite horizontal (<code>count_x == 9'd319</code>), <code>count_x</code> é reiniciado em 0 e a linha vertical (<code>count_y</code>) é incrementada. Ao alcançar a última linha (<code>count_y == 8'd239</code>), o quadro reinicia em zero.
+  - Ao atingir o limite horizontal (<code>count_x == 9'd319</code>), <code>count_x</code> é reiniciado em 0 e a linha vertical (<code>count_y</code>) é incrementada. Ao alcançar a última linha (<code>count_y == 8'd239</code>), o quadro reinicia em zero.
   - Os valores dos contadores são exportados continuamente nos barramentos de saída <code>scan_x</code> e <code>scan_y</code>, guiando os três motores gráficos (<code>MotorBG</code>, <code>MotorSprites</code> e <code>rasterizadorPoligonos</code>) na avaliação de suas respectivas geometrias para o pixel corrente.
 
 - **Cálculo de Endereçamento do FrameBuffer:**
@@ -544,6 +544,15 @@ Com o objetivo de extrair algumas métricas temporais de cada instrução, foi e
 
 <details>
 <summary><h2 id="5-recursos-timming-desempenho">5. Análise de recursos, Timing e Desempenho</h2></summary>
+
+De acordo com o relatório de compilação na plataforma Quartus Prime, o projeto utiliza os seguintes recursos da placa DE1-SoC (FPGA Cyclone V 5CSEMA5F31C6):
+
+- **Domínios de Clock**: A Unidade de Controle, a FIFO, o MotorBG, o MotorSprites e as memórias M10K operam em 50 MHz, enquanto o Compositor, o rasterizador de polígonos e o driver VGA operam em 25 MHz.
+- **Latência de Escrita**: O registrador retém o endereço de gravação por exatos 1 ciclo de _clock_. Esse atraso compensa a latência de leitura e processamento dos motores (MotorBG, MotorSprites e rasterizadorPoligonos), garantindo que o byte de cor resultante seja gravado na mesma célula de memória do Back Buffer.
+- **Latência de Leitura**: O driver VGA lê a memória pronta no Front Buffer por meio da porta dedicada de leitura, sem concorrer com a porta de gravação dos motores.
+- **Taxa de Preenchimento (Fillrate)**: Em análises sem a implementação de instruções, o varredor lógico desenha os 76.800 pixels da resolução de 320x240 em 76.800 ciclos de 25 MHz, o que equivale a aproximadamente 3,07 milissegundos. Como um quadro completo de 60 Hz dispõe de aproximadamente 16,7 milissegundos, o Back Buffer é renderizado em menos de 20% do tempo total disponível por frame. Já em análises com a implementação de instruções, o sistema atingiu uma vazão de 286.340 instruções por segundo, comportando até 4.772 instruções por frame a 60 FPS.
+- **Latência das Instruções**: Como já citado na seção de testes, quando enviadas de forma mais espaçada, as instruções apresentaram um tempo de resposta entre 2,1 e 2,5 µs. Já em um envio consecutivo de uma rajada de 1.000 instruções, o tempo médio aumentou para 3,5 µs, consistente com as esperas pelos sinais de _handshake_. Além disso, vale ressaltar que a primeira instrução apresenta um tempo de resposta de 7,1 µs, revelando um maior gasto de tempo com a configuração inicial do HPS.
+
 
 </details>
 
