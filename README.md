@@ -307,14 +307,13 @@ Disponibiliza um menu no terminal que lê o opcode desejado e seus parâmetros d
 <div align="center">
   <figure>
     <img src="resources/MenuTesteInst.png">
-    <figcaption>
+    <figcaption><br>
       Figura 3 - Terminal exibindo o Menu de seleção da Instrução a ser testada.
     </figcaption>
   </figure>
 </div>
 
 <br></br>
-
 
 <h3 id="42-teste-automatizado">4.2. Teste Automatizado</h3>
 
@@ -328,7 +327,7 @@ A validação automatizada foi conduzida utilizando dois programas complementare
 <div align="center">
   <figure>
     <img src="resources/BTILE.gif">
-    <figcaption>
+    <figcaption><br>
       Figura 4 - Alteração Dinâmica da RAM de Tiles.
     </figcaption>
   </figure>
@@ -341,7 +340,7 @@ A validação automatizada foi conduzida utilizando dois programas complementare
 <div align="center">
   <figure>
     <img src="resources/BSCROLL.gif">
-    <figcaption>
+    <figcaption><br>
       Figura 5 - Rolagem Horizontal, Vertical e Diagonal dos Tiles.
     </figcaption>
   </figure>
@@ -354,7 +353,7 @@ A validação automatizada foi conduzida utilizando dois programas complementare
 <div align="center">
   <figure>
     <img src="resources/SpriteT1.gif">
-    <figcaption>
+    <figcaption><br>
       Figura 6 - Testes das Instruções de Alteração dos Sprites.
     </figcaption>
   </figure>
@@ -367,7 +366,7 @@ A validação automatizada foi conduzida utilizando dois programas complementare
 <div align="center">
   <figure>
     <img src="resources/SpriteT2.gif">
-    <figcaption>
+    <figcaption><br>
       Figura 7 - Testes de Alteração dos 32 Sprites Simultaneamente.
     </figcaption>
   </figure>
@@ -382,7 +381,7 @@ A validação automatizada foi conduzida utilizando dois programas complementare
 <div align="center">
   <figure>
     <img src="resources/PoligonosT1.gif">
-    <figcaption>
+    <figcaption><br>
       Figura 8 - Testes das Instruções de Alteração dos Polígonos.
     </figcaption>
   </figure>
@@ -395,7 +394,7 @@ A validação automatizada foi conduzida utilizando dois programas complementare
 <div align="center">
   <figure>
     <img src="resources/PoligonosT2.gif">
-    <figcaption>
+    <figcaption><br>
       Figura 9 - Testes de Criação e Movimentação de 16 Polígonos Simultaneamente.
     </figcaption>
   </figure>
@@ -408,7 +407,7 @@ A validação automatizada foi conduzida utilizando dois programas complementare
 <div align="center">
   <figure>
     <img src="resources/PRIOR.gif">
-    <figcaption>
+    <figcaption><br>
       Figura 10 - Testes de Prioridade Entre os Motores.
     </figcaption>
   </figure>
@@ -421,7 +420,7 @@ A validação automatizada foi conduzida utilizando dois programas complementare
 <div align="center">
   <figure>
     <img src="resources/ALL.gif">
-    <figcaption>
+    <figcaption><br>
       Figura 11 - Teste de Alteração dos Três Motores em conjunto.
     </figcaption>
   </figure>
