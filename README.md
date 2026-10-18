@@ -43,10 +43,11 @@ Este repositório contém a implementação em Verilog do núcleo de um coproces
   - [6. Gargalos e Limitações](#6-gargalos-e-limitações)
   - [7. Melhorias Futuras](#7-melhorias-futuras)
   - [8. Tecnologias Utilizadas](#8-tecnologias-utilizadas)
-  - [9. Considerações Finais](#9-considerações-finais)
-  - [10. Referências e Inspirações](#10-referencias-inspiracoes)
-    - [10.1.Referências](#101-referencias)
-    - [10.2.Inspirações](#102-inspiracoes)
+  - [9. Instalação](#9-instalacao)
+  - [10. Considerações Finais](#10-considerações-finais)
+  - [11. Referências e Inspirações](#11-referencias-inspiracoes)
+    - [11.1.Referências](#111-referencias)
+    - [11.2.Inspirações](#112-inspiracoes)
 
 </details>
 
@@ -547,6 +548,15 @@ Com o objetivo de extrair algumas métricas temporais de cada instrução, foi e
 
 De acordo com o relatório de compilação na plataforma Quartus Prime, o projeto utiliza os seguintes recursos da placa DE1-SoC (FPGA Cyclone V 5CSEMA5F31C6):
 
+| Recursos de Hardware | Utilização | Disponível | % de Uso | Justificativas |
+| --- | --- | --- | --- | --- |
+| **ALMs (Logic Utilization)** | 8.704 | 32.070 | 27% | Lógica combinacional dos 3 motores (decodificação, colisões e produto vetorial) e multiplexadores. |
+| **Registradores** | 5.758 | - | - | Bancos de registradores para sprites, polígonos, divisor de clock, driver VGA, etc. |
+| **Block Memory Bits (BRAM)** | 1.830.704 | 4.065.280 | 45% | Alocação dos 2 Framebuffers (2 * 614.400 bits), Tilemap (9.600 bits), RAM de Sprites (65.536 bits) e o HPS (526.336 bits). |
+| **DSP Blocks** | 87 | 87 | 100% | Multiplicadores dedicados para o cálculo simultâneo das equações de semiplano dos 16 triângulos. |
+
+### **Timming**
+
 - **Domínios de Clock**: A Unidade de Controle, a FIFO, o MotorBG, o MotorSprites e as memórias M10K operam em 50 MHz, enquanto o Compositor, o rasterizador de polígonos e o driver VGA operam em 25 MHz.
 - **Latência de Escrita**: O registrador retém o endereço de gravação por exatos 1 ciclo de _clock_. Esse atraso compensa a latência de leitura e processamento dos motores (MotorBG, MotorSprites e rasterizadorPoligonos), garantindo que o byte de cor resultante seja gravado na mesma célula de memória do Back Buffer.
 - **Latência de Leitura**: O driver VGA lê a memória pronta no Front Buffer por meio da porta dedicada de leitura, sem concorrer com a porta de gravação dos motores.
@@ -592,19 +602,112 @@ De acordo com o relatório de compilação na plataforma Quartus Prime, o projet
 ---
 
 <details>
-<summary><h2 id="9-considerações-finais">9. Considerações Finais</h2></summary>
+<summary><h2 id="9-instalacao">9. Instalação</h2></summary>
 
-Este trabalho corresponde apenas às duas primeiras fases do projeto, que corresponde ao desenvolvimento do coprocessador gráfico, sendo notável o bom funcionamento da arquitetura criada e as possíveis melhorias para a fase posterior. Nela, haverá a implementação do jogo em linguagem C. 
+<details>
+<summary><h3>Pré-requisitos</h3></summary>
+
+- Possuir instalado o compilador <code>gcc</code>;
+- Possuir instalado o <code>Git</code>;
+- Possuir instalado o software <code>Quartus Prime</code> (com suporte à família Cyclone V);
+- Utilizar uma placa de desenvolvimento FPGA DE1-SoC com Linux embarcado no HPS;
+- Possuir um monitor conectado à placa por meio da saída VGA;
+- Cabo USB para conexão JTAG e cabo serial/UART ou Ethernet para acesso ao terminal Linux da placa.
 
 </details>
 
+<summary><h3>Passo a Passo</h3></summary>
+
+#### **1. Clonar o repositório**
+
+No terminal do seu computador, clone o repositório do projeto:
+```bash
+git clone https://github.com/AnaluzLima/Graphics-Coprocessor-for-DE1-SoC-in-Verilog.git
+```
+
+#### **2. Compilação e Gravação na FPGA (Quartus Prime)**
+
+1. Abra o Quartus Prime;
+2. Vá no menu superior em <code>File > Open Project...</code>;
+3. Navegue até a pasta do projeto clonado e abra o arquivo <code>/src/coprocessador/soc_system.qpf</code>
+4. Na aba lateral <code>Project Navigator</code>, localize o arquivo <code>ghrd_top.v</code>, clique nele com o botão direito e selecione a opção <code>Set as Top-Level Entity</code>;
+5. Inicie a compilação completa do projeto clicando em <code>Processing > Start Compilation</code>;
+  
+  > [!NOTE]
+  > O tempo médio estimado de compilação é de 8 a 12 minutos.
+
+6. Após a conclusão bem-sucedida, conecte a placa DE1-SoC ao computador via cabo USB;
+7. Abra o <code>Programmer</code> (<code>Tools > Programmer</code>), certifique-se de que o dispositivo Cyclone V foi detectado e clique em <code>Start</code> para carregar o arquivo <code>.sof</code> na FPGA.
+
+#### **3. Transferência de Arquivos para o HPS (Linux)**
+
+1. Conecte-se ao terminal Linux da DE1-SoC (via SSH, UART/Serial ou SCP);
+2. Transfira a biblioteca Assembly e os códigos de teste para o ambiente Linux da placa:
+   - <code>/src/libAssembly.S</code>
+   - <code>/src/testes/testeClaude1.c</code>
+   - <code>/src/testes/testeClaude2.c</code>
+   - <code>/src/testes/testeInstrucoes.c</code>
+
+#### **4. Compilação dos Testes no Linux**
+
+No terminal da placa DE1-SoC, dentro do diretório onde os arquivos foram colocados, compile o teste que deseja executar:
+
+- **Para compilar o Teste Visual e Estresse (testeClaude1.c):**
+```bash
+gcc -O2 -Wall -std=gnu99 testeClaude1.c libAssembly.S -o teste1 -lrt
+```
+
+- **Para compilar o Teste de Comunicação e Desempenho (testeClaude2.c):**
+```bash
+gcc -O2 -std=gnu99 testeClaude2.c -o teste2 -lrt
+```
+
+- **Para compilar o Teste Interativo de Instruções (testeInstrucoes.c):**
+```bash
+gcc -O2 -Wall -std=gnu99 testeInstrucoes.c libAssembly.S -o teste3 -lrt
+```
+
+#### **5. Execução dos Testes**
+Para acessar a ponte de comunicação <code>MMIO</code> (<code>/dev/mem</code>), você pode executar como superusuário (<code>root</code>).
+
+1. Entre no modo root:
+```bash
+sudo su
+```
+
+2. Execute o binário desejado:
+   - Para o teste visual completo:
+```bash
+./teste1
+```
+
+   - Para o teste de diagnóstico e latência (8 fases):
+```bash
+./teste2
+```
+
+   - Para o teste interativo manual:
+```bash
+./teste3
+```
+
+</details>
 
 ---
 
 <details>
-<summary><h2 id="10-referencias-inspiracoes">10. Referências e Inspirações</h2></summary>
+<summary><h2 id="10-considerações-finais">10. Considerações Finais</h2></summary>
 
-<h3 id="101-referencias">10.1. Referências</h3>
+O desenvolvimento deste coprocessador gráfico consolidou com sucesso a integração de uma arquitetura modular em hardware com o ambiente de controle em software. A implementação da ISA de 32 bits, operando em conjunto com a FSM e a FIFO de *handshake*, permitiu o controle autônomo dos motores de *background*, *sprites* e polígonos via <code>MMIO</code> sob o sistema operacional Linux. Aliada a isso, a estratégia de *Double Buffering* sincronizada ao pulso de <code>VSYNC</code> garantiu a entrega estável de 60 quadros por segundo sem a ocorrência de artefatos visuais ou oscilações de sinal. Dessa forma, os resultados alcançados atestam a robustez do núcleo digital e fornecem uma base sólida para as etapas futuras do projeto, que contemplam a aplicação de um jogo interativo em linguagem <code>C</code> e a exploração de melhorias estruturais de hardware.
+
+</details>
+
+---
+
+<details>
+<summary><h2 id="11-referencias-inspiracoes">11. Referências e Inspirações</h2></summary>
+
+<h3 id="111-referencias">11.1. Referências</h3>
 
 - ARM LIMITED (2020). Coprocessor and Arm Custom Instructions Interface for Cortex-M33. Documentação Técnica de Arquitetura ARM.
 COTTRELL, R. (2004). FPGA Coprocessors: Hardware IP for Software Engineers. White Paper / Artigo Técnico, Altera Corporation, High Wycombe, UK.
@@ -623,11 +726,10 @@ COTTRELL, R. (2004). FPGA Coprocessors: Hardware IP for Software Engineers. Whit
 - YIU, J. (2010). The Definitive Guide to the ARM Cortex-M3. 2. ed. Burlington, MA: Newnes / Elsevier.
 
 
-<h3 id="102-inspiracoes">10.2. Inspirações</h3>
+<h3 id="112-inspiracoes">11.2. Inspirações</h3>
 
 - [Readme Template - iuricode](https://github.com/iuricode/readme-template)
 - [Awesome Repo Template - MarketingPipeline](https://github.com/MarketingPipeline/Awesome-Repo-Template)
 - [coLenda Driver - camilaqPereira](https://github.com/camilaqPereira/coLenda_driver)
-
 
 </details>
