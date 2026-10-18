@@ -206,11 +206,11 @@ A ISA personalizada define o conjunto de instruções de 32 bits suportadas pelo
   - <code>11</code>: Espelhamento simultâneo horizontal e vertical.
 - <code>shw</code> (Habilitação de Visibilidade): Bit único (<code>1</code> para visível e <code>0</code> para oculto).
 - <code>tipo</code> (Geometria do Polígono): Campo de 3 bits (<code>[7:5]</code>) que seleciona o algoritmo de rasterização por equações de aresta:
-  - <code>0</code>: Retângulo.
-  - <code>1</code>: Quadrado (altura forçada igual à largura).
-  - <code>2</code>: Triângulo Equilátero (âncora no topo superior central).
-  - <code>3</code>: Triângulo Isósceles (âncora no topo superior central).
-  - <code>4</code>: Triângulo Escaleno / Retângulo (vértice reto na base inferior esquerda).
+  - <code>0</code>: Retângulo;
+  - <code>1</code>: Quadrado;
+  - <code>2</code>: Triângulo Equilátero;
+  - <code>3</code>: Triângulo Isósceles;
+  - <code>4</code>: Triângulo Escaleno / Retângulo;
 - <code>pri</code> (Prioridade de Camadas): Bit único (<code>instrucao[5]</code>) que orienta o circuito combinacional do Compositor:
   - <code>0</code>: Sprites possuem prioridade sobre os polígonos.
   - <code>1</code>: Polígonos possuem prioridade sobre os sprites.
@@ -297,13 +297,13 @@ A Figura 2 abaixo apresenta a arquitetura do projeto estruturada em um Diagrama 
 
 <h3 id="23-driver-assembly"> 2.3. Driver Assembly</h3>
 
-O driver em Assembly ARMv7-A (32 bits) implementa a camada de comunicação via MMIO entre o processador ARM Cortex-A9 (HPS) e o coprocessador gráfico na FPGA.
+O driver em Assembly ARMv7-A (32 bits) implementa a camada de comunicação via <code>MMIO</code> entre o processador ARM Cortex-A9 (HPS) e o coprocessador gráfico na FPGA.
 
 <br>
 
 **2.3.1. Mapeamento de Memória (MMIO)**
 
-O acesso ao hardware físico contorna o cache do sistema abrindo <code>/dev/mem</code> e mapeando a ponte Lightweight HPS-to-FPGA via syscall <code>mmap2</code>:
+O acesso ao hardware físico contorna o cache do sistema abrindo <code>/dev/mem</code> e mapeando a ponte Lightweight HPS-to-FPGA via *syscall* <code>mmap2</code>:
 
 - **Endereço Base**: <code>0xFF200000</code> (espaço de 2 MB).
 - **Offsets dos Registradores (PIOs)**:
@@ -343,7 +343,7 @@ As funções criadas no driver podem ser importadas para serem utilizadas em có
 2. **Folga de Desempenho**: Ao desenhar um quadro inteiro em apenas 3,07 ms utilizando o clock de 25 MHz, o hardware consome menos de 20% do orçamento de tempo de varredura física do monitor (16,6 ms), assegurando alto desempenho e margem para fechamento de timing no Quartus.
 3. **Aritmética Inteira Signed no Rasterizador**: Parametrizar as coordenadas e os cálculos dos multiplicadores DSP como números inteiros com sinal resolve erros de estouro aritmético quando vértices de polígonos móveis ou estáticos se localizam parcialmente fora do campo visível (coordenadas negativas), eliminando distorções na tela.
 4. **Paralelismo de Alta Densidade**: O uso simultâneo de 87 blocos multiplicadores DSP dedicados garante que a validação lógica dos 16 polígonos ocorra em tempo real a cada pixel do varredor, sem atrasos de processamento.
-5. **Reformulação do Compositor**: O problema tem como um dos requisitos o desenvolvimento de motores gráficos e compositor, entretanto, sabendo que as suas funcionalidades se assemelham, o compositor foi convertido em um seletor, sendo responsável apenas pela cor final do pixel, enquanto os motores são responsáveis pelos cálculos.
+5. **Reformulação do Compositor**: O problema tem como um dos requisitos o desenvolvimento de motores gráficos e compositor, entretanto, sabendo que as suas funcionalidades se assemelham, o compositor foi convertido em um seletor, sendo responsável apenas pela aplicação da prioridade entre motores e a cor final do pixel, enquanto os motores são responsáveis pelos cálculos.
 6. **Uso de uma Fila Circular de Instruções**:  Uma fila circular é uma estrutura de dados que permite o reaproveitamento de espaço ao conectar a última posição com a primeira. Com essa abordagem, evita-se o desperdício de espaço e a necessidade de deslocar dados, gerando uma atualização rápida na fila e evitando que novas instruções tenham que esperar para serem armazenadas. Entretanto, vale ressaltar que sua implementação requer mecanismos de controle adicionais, como ponteiros para leitura e escrita e sinais de _status_ (cheio e vazio), para a plena manutenção da fila.
 7. **Fases do Ciclo de Execução de Instrução**: Em arquiteturas de processadores, os ciclos de execução de instrução geralmente apresentam quatro fases: busca, decodificação, execução e armazenamento dos resultados. Porém, ao decorrer do desenvolvimento do coprocessador gráfico, percebeu-se a necessidade de modificação neste ciclo, assim, as fases de decodificação e execução foram unidas, já que os motores utilizam apenas um ciclo de _clock_ para realizarem suas tarefas.
 8. **Organização das Instruções**: Inicialmente, as instruções foram organizadas de tal modo que os cinco _bits_ mais significativos correspondiam ao <code>opcode</code> e os _bits_ restantes correspondiam às informações necessárias para a instrução. Entretanto, os testes de integração entre o coprocessador e o processador ARM não funcionaram. Isso ocorreu, pois descobriu-se que a passagem sequencial dos dados espelhava a ordem dos _bits_ e as instruções enviadas não eram identificadas pelo coprocessador. Para resolver esse problema, as instruções foram modificadas e o <code>opcode</code> passou a ocupar os cinco _bits_ menos significativos.
@@ -557,12 +557,30 @@ De acordo com o relatório de compilação na plataforma Quartus Prime, o projet
 
 ### **Timming**
 
-- **Domínios de Clock**: A Unidade de Controle, a FIFO, o MotorBG, o MotorSprites e as memórias M10K operam em 50 MHz, enquanto o Compositor, o rasterizador de polígonos e o driver VGA operam em 25 MHz.
+- **Domínios de Clock e Frequência Máxima (Fmax):**:
+  - <code>clock_50_2</code> (Alimenta o coprocessador gráfico e a lógica de vídeo VGA): Frequência máxima de 64,4 MHz (<code>Restricted Fmax = 64,4 MHz</code>), conferindo folga sobre a meta de operação de 50 MHz da Unidade de Controle e FIFO, e ampla margem sobre o subclock de 25 MHz (<code>clk25</code>) usado pelo Compositor e driver VGA.
+  - <code>clock_50_1</code> (Clock do sistema SoC/FPGA): Frequência máxima de 90,68 MHz.
+  - <code>afi_clk_write_clk</code> (PLL do controlador de memória SDRAM/DDR3 do HPS): Frequência máxima de 1184,83 MHz (restrita a 717,36 MHz por restrição de período mínimo <code>tmin</code>).
+  - <code>altera_reserved_tck</code> (Clock de depuração/JTAG): Frequência máxima de 74,73 MHz.
+- **Análise de Folga Temporal (Slack):**
+  - **Setup Slack:** Todos os domínios de clock apresentaram folga positiva (positive slack) e Total Negative Slack (TNS) nulo (0,000 ns), garantindo estabilidade e ausência de violações de tempo de estabelecimento:
+    - <code>clock_50_2</code>: Folga de +4,472 ns.
+    - <code>clock_50_1</code>: Folga de +8,972 ns.
+    - <code>afi_clk_write_clk</code>: Folga de +1,730 ns.
+    - <code>altera_reserved_tck</code>: Folga de +9,976 ns.
+  - **Hold Slack:** As restrições de tempo de retenção foram atendidas com folgas positivas em todos os caminhos (TNS = 0,000 ns), prevenindo condições de corrida:
+    - <code>clock_50_2</code>: Folga de +0,374 ns.
+    - <code>clock_50_1</code>: Folga de +0,258 ns.
+    - <code>afi_clk_write_clk</code>: Folga de +0,143 ns.
+    - <code>altera_reserved_tck</code>: Folga de +0,292 ns.
 - **Latência de Escrita**: O registrador retém o endereço de gravação por exatos 1 ciclo de _clock_. Esse atraso compensa a latência de leitura e processamento dos motores (MotorBG, MotorSprites e rasterizadorPoligonos), garantindo que o byte de cor resultante seja gravado na mesma célula de memória do Back Buffer.
 - **Latência de Leitura**: O driver VGA lê a memória pronta no Front Buffer por meio da porta dedicada de leitura, sem concorrer com a porta de gravação dos motores.
-- **Taxa de Preenchimento (Fillrate)**: Em análises sem a implementação de instruções, o varredor lógico desenha os 76.800 pixels da resolução de 320x240 em 76.800 ciclos de 25 MHz, o que equivale a aproximadamente 3,07 milissegundos. Como um quadro completo de 60 Hz dispõe de aproximadamente 16,7 milissegundos, o Back Buffer é renderizado em menos de 20% do tempo total disponível por frame. Já em análises com a implementação de instruções, o sistema atingiu uma vazão de 286.340 instruções por segundo, comportando até 4.772 instruções por frame a 60 FPS.
-- **Latência das Instruções**: Como já citado na seção de testes, quando enviadas de forma mais espaçada, as instruções apresentaram um tempo de resposta entre 2,1 e 2,5 µs. Já em um envio consecutivo de uma rajada de 1.000 instruções, o tempo médio aumentou para 3,5 µs, consistente com as esperas pelos sinais de _handshake_. Além disso, vale ressaltar que a primeira instrução apresenta um tempo de resposta de 7,1 µs, revelando um maior gasto de tempo com a configuração inicial do HPS.
 
+### **Desempenho**
+
+- **Processamento Vetorial Paralelo (DSPs)**: A alocação integral dos 87 blocos de DSP sustenta o cálculo simultâneo de 48 produtos vetoriais a cada pixel do varredor virtual a 25 MHz (16 triângulos x 3 equações de aresta). Isso viabiliza uma taxa contínua de processamento geométrico de 221,18 milhões de produtos vetoriais por segundo em hardware, executada sem interrupções ou consumo de tempo da CPU ARM.
+- **Taxa de Preenchimento (Fillrate)**: Em análises sem a implementação de instruções, o varredor lógico desenha os 76.800 pixels da resolução de 320x240 em 76.800 ciclos de 25 MHz, o que equivale a aproximadamente 3,07 milissegundos. Como um quadro completo de 60 Hz dispõe de aproximadamente 16,7 milissegundos, o Back Buffer é renderizado em menos de 20% do tempo total disponível por frame. Já em análises com a implementação de instruções, o sistema atingiu uma vazão de 286.340 instruções por segundo, comportando até 4.772 instruções por frame a 60 FPS.
+- **Latência das Instruções**: Como já citado na seção de testes, quando enviadas de forma mais espaçada, as instruções apresentaram um tempo de resposta entre 2,1 e 2,5 µs. Já em um envio consecutivo de uma rajada de 1.000 instruções, o tempo médio aumentou para 3,5 µs, consistente com as esperas pelos sinais de *handshake*. Além disso, vale ressaltar que a primeira instrução apresenta um tempo de resposta de 7,1 µs, revelando um maior gasto de tempo com a configuração inicial do HPS.
 
 </details>
 
@@ -583,7 +601,7 @@ De acordo com o relatório de compilação na plataforma Quartus Prime, o projet
 
 - **Backgrounds e Múltiplos Mapas**: Expandir a RAM de Tilemap para suportar múltiplos cenários e permitir a troca dinâmica de mapas em tempo real durante a execução do jogo;
 - **Reuso de Multiplicadores**: Aplicar compartilhamento temporal das unidades aritméticas de multiplicação (reuso de DSPs) para reduzir o consumo de hardware e liberar recursos na FPGA, viabilizando o desenho de mais polígonos simultâneos;
-- **Ajuste Fino no Boundary Check**: Refinar a lógica de colisão e corte do rasterizador para garantir que polígonos encostados na borda da tela transitem entre diferentes formas sem sobressaltos visuais.
+- **Ajuste no Boundary Check**: Refinar a lógica de colisão e corte do rasterizador para garantir que polígonos encostados na borda da tela transitem entre diferentes formas sem sobressaltos visuais.
 
 </details>
 
@@ -632,9 +650,8 @@ git clone https://github.com/AnaluzLima/Graphics-Coprocessor-for-DE1-SoC-in-Veri
 3. Navegue até a pasta do projeto clonado e abra o arquivo <code>/src/coprocessador/soc_system.qpf</code>
 4. Na aba lateral <code>Project Navigator</code>, localize o arquivo <code>ghrd_top.v</code>, clique nele com o botão direito e selecione a opção <code>Set as Top-Level Entity</code>;
 5. Inicie a compilação completa do projeto clicando em <code>Processing > Start Compilation</code>;
-  
-  > [!NOTE]
-  > O tempo médio estimado de compilação é de 8 a 12 minutos.
+
+    > ⚠️ O tempo médio estimado de compilação é de 8 a 12 minutos.
 
 6. Após a conclusão bem-sucedida, conecte a placa DE1-SoC ao computador via cabo USB;
 7. Abra o <code>Programmer</code> (<code>Tools > Programmer</code>), certifique-se de que o dispositivo Cyclone V foi detectado e clique em <code>Start</code> para carregar o arquivo <code>.sof</code> na FPGA.
