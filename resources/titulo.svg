@@ -46,18 +46,15 @@
   </defs>
 
   <g class="wave-layer-2">
-    <path fill="#6d7b48" fill-opacity="0.5" d="M 0,0 L 1440,0 L 1440,330 C 1200,280 900,360 680,320 C 420,275 180,360 0,350 Z" />
+    <path fill="#6d7b48" fill-opacity="0.5" d="M -20,0 L 1460,0 L 1460,330 C 1200,280 900,360 680,320 C 420,275 180,360 -20,350 Z" />
   </g>
 
-  <!-- Camada de onda 1 (bloco principal superior com animação fluida) -->
   <g class="wave-layer-1">
     <path fill="#6d7b48" d="M 0,0 L 1440,0 L 1440,310 C 1150,350 950,270 720,290 C 480,310 250,370 0,330 Z" />
   </g>
 
-  <!-- Título Quebrado em Negrito e Itálico -->
   <text x="720" y="130" class="main-title">DESENVOLVIMENTO DE UM</text>
   <text x="720" y="195" class="main-title">COPROCESSADOR GRÁFICO 2D</text>
 
-  <!-- Subtítulo Reto (Sem Negrito / Sem Itálico) -->
   <text x="720" y="230" class="sub-title">Arquitetura modular em Verilog com interface HPS-FPGA na plataforma DE1-SoC</text>
 </svg>
