@@ -1,8 +1,8 @@
 /* ============================================================================
-*  testeC.c  -  Bateria de testes do coprocessador gráfico (DE1-SoC)
+*  testeClaude1.c  -  Bateria de testes do coprocessador gráfico (DE1-SoC)
 *
 *  Compilar (C + driver assembly juntos):
-*      gcc -O2 -Wall testeC.c assembly.S -o teste -lrt
+*      gcc -O2 -Wall testeClaude1.c libAssembly.S -o teste -lrt
 *  Executar (precisa de root por causa do /dev/mem):
 *      sudo ./teste                 -> avança com ENTER (q+ENTER sai)
 *      sudo ./teste -t 2000         -> avança sozinho a cada 2000 ms
