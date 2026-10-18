@@ -693,17 +693,18 @@ sudo su
 ```
 
 2. Execute o binário desejado:
-   - Para o teste visual completo:
+
+  - Para o teste visual completo:
 ```bash
 ./teste1
 ```
 
-   - Para o teste de diagnóstico e latência (8 fases):
+  - Para o teste de diagnóstico e latência:
 ```bash
 ./teste2
 ```
 
-   - Para o teste interativo manual:
+  - Para o teste interativo manual:
 ```bash
 ./teste3
 ```
